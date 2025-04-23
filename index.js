@@ -33,7 +33,7 @@ wss.on('connection', (ws) => {
 
 // Firestore listener
 db.collection('reuniones')
-  .where('estado', '==', 'in_progress')
+  .where('status', '==', 'in_progress')
   .onSnapshot((snapshot) => {
     snapshot.docChanges().forEach((change) => {
       if (change.type === 'added' || change.type === 'modified') {
