@@ -1,10 +1,12 @@
 import express from 'express';
 import { WebSocketServer } from 'ws';
-import { initializeApp, applicationDefault } from 'firebase-admin/app';
+import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
+const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS_JSON);
+
 initializeApp({
-  credential: applicationDefault()
+  credential: cert(serviceAccount)
 });
 
 const db = getFirestore();
