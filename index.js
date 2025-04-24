@@ -35,15 +35,25 @@ wss.on('connection', (ws) => {
 });
 
 // Firestore listener
+let firstSnapshot = true;
+
 db.collection('reuniones')
   .where('status', '==', 'in_progress')
   .onSnapshot((snapshot) => {
+    if (firstSnapshot) {
+      firstSnapshot = false;
+      return; // ❌ Ignora el primer snapshot automático
+    }
+
     snapshot.docChanges().forEach((change) => {
       if (change.type === 'added' || change.type === 'modified') {
-        const tokenQR = change.doc.data().tokenQR;
-        console.log('Enviando token a ESP32:', tokenQR);
+        const data = change.doc.data();
+        const tokenQR = data.tokenQR;
+        const title = data.title || 'Reunión sin título';
+
+        console.log(`Enviando token a ESP32: ${tokenQR} - ${title}`);
         connectedClients.forEach(ws => {
-          ws.send(JSON.stringify({ tokenQR }));
+          ws.send(JSON.stringify({ tokenQR, title }));
         });
       }
     });
