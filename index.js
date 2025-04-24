@@ -2,6 +2,7 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import http from 'http';
 
 const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS_JSON);
 
@@ -12,7 +13,7 @@ initializeApp({
 const db = getFirestore();
 const app = express();
 const port = process.env.PORT || 3000;
-const http = require("http");
+
 const server = http.createServer(app);
 
 server.listen(port, () => {
