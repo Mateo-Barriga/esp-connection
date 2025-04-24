@@ -12,8 +12,10 @@ initializeApp({
 const db = getFirestore();
 const app = express();
 const port = process.env.PORT || 3000;
+const http = require("http");
+const server = http.createServer(app);
 
-const server = app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Servidor WebSocket escuchando en el puerto ${port}`);
 });
 
