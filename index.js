@@ -24,7 +24,7 @@ server.listen(port, () => {
 const wss = new WebSocketServer({ server });
 
 let connectedClients = [];
-setClientsReference(connectedClients); // ✅ Pasamos la referencia al módulo
+setConnectedClients(connectedClients); // ✅ Pasamos la referencia al módulo
 
 wss.on('connection', (ws) => {
   console.log('ESP32 conectada por WebSocket');
