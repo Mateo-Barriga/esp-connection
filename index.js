@@ -3,7 +3,7 @@ import { WebSocketServer } from 'ws';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import http from 'http';
-import { handleFingerprintRegister, setClientsReference } from './fingerprintRegister.js';
+import { handleFingerprintRegister, setConnectedClients } from './fingerprintRegister.js';
 
 const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS_JSON);
 
