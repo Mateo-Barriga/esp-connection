@@ -27,31 +27,28 @@ let connectedClients = [];
 setConnectedClients(connectedClients); // ✅ Pasamos la referencia al módulo
 
 wss.on('connection', (ws) => {
-  console.log('ESP32 conectada por WebSocket');
+  console.log('🚀 Nueva conexión WebSocket');
 
-  // 🔥 Cerramos cualquier cliente anterior
-  connectedClients.forEach((client) => {
-    try {
-      client.close();
-    } catch (error) {
-      console.warn('Error cerrando cliente viejo:', error);
-    }
-  });
+  // 🔥 Si ya hay un cliente conectado, lo rechazamos
+  if (connectedClients.length > 0) {
+    console.log('⚠️ Ya hay un cliente conectado, cerrando nueva conexión...');
+    ws.close();
+    return;
+  }
 
-  // 🔥 Limpiamos la lista
-  connectedClients = [];
-
-  // 🔥 Agregamos la nueva conexión
   connectedClients.push(ws);
+  console.log('✅ Cliente WebSocket agregado. Total clientes:', connectedClients.length);
 
   ws.on('close', () => {
-    console.log('ESP32 desconectada');
+    console.log('🔌 Cliente WebSocket desconectado');
     connectedClients = connectedClients.filter(client => client !== ws);
+    console.log('💬 Clientes WebSocket activos:', connectedClients.length);
   });
 
   ws.on('message', async (data) => {
     try {
       const message = JSON.parse(data);
+      console.log('📩 Mensaje recibido de ESP32:', message);
 
       if (!message.action) {
         console.warn('⚠️ Mensaje recibido sin action:', message);
@@ -78,10 +75,11 @@ wss.on('connection', (ws) => {
           break;
       }
     } catch (err) {
-      console.error('Error procesando mensaje WebSocket:', err);
+      console.error('❗ Error procesando mensaje WebSocket:', err);
     }
   });
 });
+
 
 
 
