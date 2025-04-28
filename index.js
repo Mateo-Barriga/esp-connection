@@ -28,6 +28,20 @@ setConnectedClients(connectedClients); // ✅ Pasamos la referencia al módulo
 
 wss.on('connection', (ws) => {
   console.log('ESP32 conectada por WebSocket');
+
+  // Cierra todas las conexiones anteriores
+  connectedClients.forEach(client => {
+    try {
+      client.close();
+    } catch (e) {
+      console.error('Error cerrando cliente viejo:', e);
+    }
+  });
+
+  // Limpia la lista
+  connectedClients = [];
+
+  // Agrega el nuevo cliente
   connectedClients.push(ws);
 
   ws.on('close', () => {
@@ -59,11 +73,6 @@ wss.on('connection', (ws) => {
           }
           break;
 
-        // ➡️ Si el día de mañana quieres agregar más acciones, solo agregas más "case" aquí.
-        // case 'otro_tipo_de_mensaje':
-        //   hacer algo...
-        //   break;
-
         default:
           console.warn('⚠️ Acción no reconocida en mensaje WebSocket:', message.action);
           break;
@@ -73,6 +82,7 @@ wss.on('connection', (ws) => {
     }
   });
 });
+
 
 
 
