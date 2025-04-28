@@ -28,11 +28,25 @@ setConnectedClients(connectedClients); // ✅ Pasamos la referencia al módulo
 
 wss.on('connection', (ws) => {
   console.log('ESP32 conectada por WebSocket');
+
+  // 🔥 Cerramos cualquier cliente anterior
+  connectedClients.forEach((client) => {
+    try {
+      client.close();
+    } catch (error) {
+      console.warn('Error cerrando cliente viejo:', error);
+    }
+  });
+
+  // 🔥 Limpiamos la lista
+  connectedClients = [];
+
+  // 🔥 Agregamos la nueva conexión
   connectedClients.push(ws);
 
   ws.on('close', () => {
-    connectedClients = connectedClients.filter(client => client !== ws);
     console.log('ESP32 desconectada');
+    connectedClients = connectedClients.filter(client => client !== ws);
   });
 
   ws.on('message', async (data) => {
@@ -68,6 +82,7 @@ wss.on('connection', (ws) => {
     }
   });
 });
+
 
 
 
