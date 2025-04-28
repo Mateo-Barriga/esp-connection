@@ -28,11 +28,7 @@ setConnectedClients(connectedClients); // ✅ Pasamos la referencia al módulo
 
 wss.on('connection', (ws) => {
   console.log('ESP32 conectada por WebSocket');
-
-  // Cerramos cualquier cliente anterior
-  connectedClients.forEach(client => client.close());
-
-  connectedClients = [ws]; // Solo el nuevo
+  connectedClients.push(ws);
 
   ws.on('close', () => {
     connectedClients = connectedClients.filter(client => client !== ws);
