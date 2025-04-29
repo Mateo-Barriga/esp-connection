@@ -29,15 +29,16 @@ setConnectedClients(connectedClients); // ✅ Pasamos la referencia al módulo
 wss.on('connection', (ws) => {
   console.log('🚀 Nueva conexión WebSocket');
 
-  // 🔥 Antes de rechazar, revisamos si hay clientes *vivos*
-  connectedClients = connectedClients.filter(client => client.readyState === client.OPEN);
-
+  // 🔥 Si ya hay un cliente conectado, lo desconectamos manualmente
   if (connectedClients.length > 0) {
-    console.log('⚠️ Ya hay un cliente WebSocket activo, cerrando nueva conexión...');
-    ws.close();
-    return;
+    console.log('⚠️ Cliente existente encontrado, cerrándolo para aceptar nueva conexión...');
+    connectedClients.forEach(client => {
+      client.terminate(); // cerrar inmediatamente
+    });
+    connectedClients = [];
   }
 
+  // Ahora agregamos el nuevo cliente
   connectedClients.push(ws);
   console.log('✅ Cliente WebSocket agregado. Total clientes:', connectedClients.length);
 
@@ -81,6 +82,7 @@ wss.on('connection', (ws) => {
     }
   });
 });
+
 
 
 
