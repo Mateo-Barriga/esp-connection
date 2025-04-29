@@ -3,7 +3,7 @@ import { WebSocketServer } from 'ws';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import http from 'http';
-import { handleFingerprintRegister, setConnectedClients } from './fingerprintRegister.js';
+import { setConnectedClients } from './fingerprintRegister.js';
 
 const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS_JSON);
 
@@ -127,8 +127,22 @@ app.post('/trigger-fingerprint-scan', async (req, res) => {
       return res.status(400).json({ error: 'Faltan datos obligatorios: uid, nombre o correo' });
     }
 
-    await handleFingerprintRegister({ uid, nombre, email });
-    res.status(200).json({ message: 'Solicitud enviada a ESP32' });
+    const message = {
+      action: 'registrar_huella',
+      uid,
+      nombre,
+      email
+    };
+
+    if (connectedClients.length === 0) {
+      return res.status(503).json({ error: 'No hay ESP32 conectado' });
+    }
+
+    connectedClients.forEach(ws => {
+      ws.send(JSON.stringify(message));
+    });
+
+    res.status(200).json({ message: 'Solicitud enviada a todos los clientes ESP32' });
   } catch (error) {
     console.error('❌ Error en trigger-fingerprint-scan:', error);
     res.status(500).json({ error: 'Error interno al enviar solicitud de registro de huella' });
