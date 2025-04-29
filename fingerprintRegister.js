@@ -21,10 +21,10 @@ export function requestFingerprintRegistration(data) {
     email: data.email
   };
 
-  console.log('📡 Enviando solicitud de registro de huella a la ESP32:', payload);
+  console.log('📡 Enviando solicitud de registro de huella a los clientes conectados:', payload);
 
-  // Enviar el mensaje a todos los clientes conectados
   connectedClients.forEach((ws) => {
+    console.log(`➡️ Enviando solicitud a cliente WebSocket con ID: ${ws._id}`);
     ws.send(JSON.stringify(payload));
   });
 }

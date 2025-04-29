@@ -29,30 +29,31 @@ setConnectedClients(connectedClients); // se pasa la referencia
 wss.on('connection', (ws) => {
   console.log('🚀 Nueva conexión WebSocket');
 
+  // 🔧 Asigna un identificador temporal a la conexión (solo para debug)
+  ws._id = Date.now(); // También podrías usar uuid si deseas más robustez
+  console.log(`🆔 Cliente conectado con ID temporal: ${ws._id}`);
+
   // Si ya hay un cliente conectado, ciérralo de forma segura
   if (connectedClients.length > 0) {
     console.log('⚠️ Cliente existente encontrado, cerrándolo para aceptar nueva conexión...');
 
-    // Cerrar todos los clientes viejos (solo debería haber uno)
     connectedClients.forEach(client => {
-      client.close(1000, 'Reemplazo por nueva conexión'); // 🔁 close mejor que terminate
+      client.close(1000, 'Reemplazo por nueva conexión');
     });
 
-    // ⚠️ Esperamos brevemente para evitar que el 'close' del nuevo cliente se dispare por error
     setTimeout(() => {
-      connectedClients = []; // ahora sí limpiamos
+      connectedClients = [];
       connectedClients.push(ws);
       console.log('✅ Cliente WebSocket agregado. Total clientes:', connectedClients.length);
-    }, 100); // Espera pequeña, suficiente para evitar colisiones
+    }, 100);
   } else {
     connectedClients.push(ws);
     console.log('✅ Cliente WebSocket agregado. Total clientes:', connectedClients.length);
   }
 
   ws.on('close', () => {
-    // ⚠️ Solo removemos si realmente sigue estando en el array
     if (connectedClients.includes(ws)) {
-      console.log('🔌 Cliente WebSocket desconectado');
+      console.log(`🔌 Cliente WebSocket desconectado (ID: ${ws._id})`);
       connectedClients = connectedClients.filter(client => client !== ws);
       console.log('💬 Clientes WebSocket activos:', connectedClients.length);
     }
@@ -61,7 +62,7 @@ wss.on('connection', (ws) => {
   ws.on('message', async (data) => {
     try {
       const message = JSON.parse(data);
-      console.log('📩 Mensaje recibido de ESP32:', message);
+      console.log(`📩 Mensaje recibido de ESP32 (ID: ${ws._id}):`, message);
 
       if (!message.action) {
         console.warn('⚠️ Mensaje recibido sin action:', message);
