@@ -36,20 +36,23 @@ wss.on('connection', (ws) => {
   // Si ya hay un cliente conectado, ciérralo de forma segura
   if (connectedClients.length > 0) {
     console.log('⚠️ Cliente existente encontrado, cerrándolo para aceptar nueva conexión...');
-
+  
     connectedClients.forEach(client => {
+      console.log(`🔌 Cerrando cliente anterior con ID: ${client._id}`);
       client.close(1000, 'Reemplazo por nueva conexión');
     });
-
+  
     setTimeout(() => {
       connectedClients = [];
       connectedClients.push(ws);
       console.log('✅ Cliente WebSocket agregado. Total clientes:', connectedClients.length);
+      console.log(`🆕 Cliente activo tras reinicio de ESP32: ID = ${ws._id}`); // 👈 Este es el log nuevo que pediste
     }, 100);
   } else {
     connectedClients.push(ws);
     console.log('✅ Cliente WebSocket agregado. Total clientes:', connectedClients.length);
   }
+  
 
   ws.on('close', () => {
     if (connectedClients.includes(ws)) {
