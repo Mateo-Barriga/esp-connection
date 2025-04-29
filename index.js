@@ -14,9 +14,7 @@ initializeApp({
 const db = getFirestore();
 const app = express();
 const port = process.env.PORT || 3000;
-
 const server = http.createServer(app);
-
 server.listen(port, () => {
   console.log(`Servidor WebSocket escuchando en el puerto ${port}`);
 });
@@ -24,35 +22,31 @@ server.listen(port, () => {
 const wss = new WebSocketServer({ server });
 
 let connectedClients = [];
-setConnectedClients(connectedClients); // se pasa la referencia
+setConnectedClients(connectedClients); // Se pasa referencia a fingerprintRegister
 
 wss.on('connection', (ws) => {
   console.log('🚀 Nueva conexión WebSocket');
-
-  // 🔧 Asigna un identificador temporal a la conexión (solo para debug)
-  ws._id = Date.now(); // También podrías usar uuid si deseas más robustez
+  ws._id = Date.now();
   console.log(`🆔 Cliente conectado con ID temporal: ${ws._id}`);
 
-  // Si ya hay un cliente conectado, ciérralo de forma segura
+  // Reemplazar cliente anterior si existe
   if (connectedClients.length > 0) {
-    console.log('⚠️ Cliente existente encontrado, cerrándolo para aceptar nueva conexión...');
-  
+    console.log('⚠️ Cliente existente encontrado, cerrándolo...');
     connectedClients.forEach(client => {
       console.log(`🔌 Cerrando cliente anterior con ID: ${client._id}`);
       client.close(1000, 'Reemplazo por nueva conexión');
     });
-  
+
     setTimeout(() => {
       connectedClients.length = 0;
       connectedClients.push(ws);
       console.log('✅ Cliente WebSocket agregado. Total clientes:', connectedClients.length);
-      console.log(`🆕 Cliente activo tras reinicio de ESP32: ID = ${ws._id}`); // 👈 Este es el log nuevo que pediste
+      console.log(`🆕 Cliente activo tras reinicio de ESP32: ID = ${ws._id}`);
     }, 100);
   } else {
     connectedClients.push(ws);
     console.log('✅ Cliente WebSocket agregado. Total clientes:', connectedClients.length);
   }
-  
 
   ws.on('close', () => {
     if (connectedClients.includes(ws)) {
@@ -96,14 +90,6 @@ wss.on('connection', (ws) => {
   });
 });
 
-
-
-
-
-
-
-
-
 // 🔄 Firestore listener para mostrar QR en TFT
 let firstSnapshot = true;
 
@@ -122,7 +108,7 @@ db.collection('reuniones')
         const title = data.title || 'Reunión sin título';
         const action = 'mostrar_qr';
 
-        console.log(`Enviando token a ESP32: ${tokenQR} - ${title} - ${action}`);
+        console.log(`📡 Enviando token a ESP32: ${tokenQR} - ${title}`);
         connectedClients.forEach(ws => {
           ws.send(JSON.stringify({ tokenQR, title, action }));
         });
@@ -130,7 +116,7 @@ db.collection('reuniones')
     });
   });
 
-// ✅ Nuevo endpoint para registrar huella
+// ✅ Endpoint HTTP para iniciar registro de huella
 app.use(express.json());
 
 app.post('/trigger-fingerprint-scan', async (req, res) => {
@@ -142,11 +128,9 @@ app.post('/trigger-fingerprint-scan', async (req, res) => {
     }
 
     await handleFingerprintRegister({ uid, nombre, email });
-
     res.status(200).json({ message: 'Solicitud enviada a ESP32' });
   } catch (error) {
-    console.error('Error en trigger-fingerprint-scan:', error);
+    console.error('❌ Error en trigger-fingerprint-scan:', error);
     res.status(500).json({ error: 'Error interno al enviar solicitud de registro de huella' });
   }
 });
-

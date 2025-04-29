@@ -1,4 +1,4 @@
-let connectedClients = []; // Esto será sobreescrito desde index.js
+let connectedClients = [];
 
 // Se exporta esta función para setear la lista de clientes conectados
 export function setConnectedClients(clients) {
@@ -21,11 +21,20 @@ export function requestFingerprintRegistration(data) {
     email: data.email
   };
 
+  if (connectedClients.length === 0) {
+    console.warn('⚠️ No hay clientes WebSocket conectados para enviar la solicitud de huella');
+    return;
+  }
+
   console.log('📡 Enviando solicitud de registro de huella a los clientes conectados:', payload);
 
   connectedClients.forEach((ws) => {
-    console.log(`➡️ Enviando solicitud a cliente WebSocket con ID: ${ws._id}`);
-    ws.send(JSON.stringify(payload));
+    if (ws.readyState === ws.OPEN) {
+      console.log(`➡️ Enviando solicitud a cliente WebSocket con ID: ${ws._id}`);
+      ws.send(JSON.stringify(payload));
+    } else {
+      console.warn(`❌ Cliente WebSocket con ID ${ws._id} no está abierto (estado: ${ws.readyState})`);
+    }
   });
 }
 
@@ -36,8 +45,9 @@ export function requestFingerprintRegistration(data) {
  */
 export async function handleFingerprintRegister(data) {
   try {
-    requestFingerprintRegistration(data);  // Llama a la función para enviar el mensaje a ESP32
+    requestFingerprintRegistration(data);
   } catch (error) {
-    console.error('Error en el registro de huella:', error);
+    console.error('❗ Error en el registro de huella:', error.message);
+    throw error; // Se vuelve a lanzar para que el endpoint lo capture si es necesario
   }
 }
