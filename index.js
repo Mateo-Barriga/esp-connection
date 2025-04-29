@@ -24,28 +24,38 @@ server.listen(port, () => {
 const wss = new WebSocketServer({ server });
 
 let connectedClients = [];
-setConnectedClients(connectedClients); // ✅ Pasamos la referencia al módulo
+setConnectedClients(connectedClients); // se pasa la referencia
 
 wss.on('connection', (ws) => {
   console.log('🚀 Nueva conexión WebSocket');
 
-  // 🔥 Si ya hay un cliente conectado, lo desconectamos manualmente
+  // Si ya hay un cliente conectado, ciérralo de forma segura
   if (connectedClients.length > 0) {
     console.log('⚠️ Cliente existente encontrado, cerrándolo para aceptar nueva conexión...');
+
+    // Cerrar todos los clientes viejos (solo debería haber uno)
     connectedClients.forEach(client => {
-      client.terminate(); // cerrar inmediatamente
+      client.close(1000, 'Reemplazo por nueva conexión'); // 🔁 close mejor que terminate
     });
-    connectedClients = [];
+
+    // ⚠️ Esperamos brevemente para evitar que el 'close' del nuevo cliente se dispare por error
+    setTimeout(() => {
+      connectedClients = []; // ahora sí limpiamos
+      connectedClients.push(ws);
+      console.log('✅ Cliente WebSocket agregado. Total clientes:', connectedClients.length);
+    }, 100); // Espera pequeña, suficiente para evitar colisiones
+  } else {
+    connectedClients.push(ws);
+    console.log('✅ Cliente WebSocket agregado. Total clientes:', connectedClients.length);
   }
 
-  // Ahora agregamos el nuevo cliente
-  connectedClients.push(ws);
-  console.log('✅ Cliente WebSocket agregado. Total clientes:', connectedClients.length);
-
   ws.on('close', () => {
-    console.log('🔌 Cliente WebSocket desconectado');
-    connectedClients = connectedClients.filter(client => client !== ws);
-    console.log('💬 Clientes WebSocket activos:', connectedClients.length);
+    // ⚠️ Solo removemos si realmente sigue estando en el array
+    if (connectedClients.includes(ws)) {
+      console.log('🔌 Cliente WebSocket desconectado');
+      connectedClients = connectedClients.filter(client => client !== ws);
+      console.log('💬 Clientes WebSocket activos:', connectedClients.length);
+    }
   });
 
   ws.on('message', async (data) => {
@@ -61,7 +71,6 @@ wss.on('connection', (ws) => {
       switch (message.action) {
         case 'resultado_registro_huella':
           console.log('✅ Respuesta de registro de huella:', message);
-
           if (message.register_status === 'success') {
             await db.collection('usuarios').doc(message.uid).update({
               huella_registrada: true,
