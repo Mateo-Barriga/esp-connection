@@ -43,7 +43,7 @@ wss.on('connection', (ws) => {
     });
   
     setTimeout(() => {
-      connectedClients = [];
+      connectedClients.length = 0;
       connectedClients.push(ws);
       console.log('✅ Cliente WebSocket agregado. Total clientes:', connectedClients.length);
       console.log(`🆕 Cliente activo tras reinicio de ESP32: ID = ${ws._id}`); // 👈 Este es el log nuevo que pediste
