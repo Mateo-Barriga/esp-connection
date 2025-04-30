@@ -3,7 +3,7 @@ import { WebSocketServer } from 'ws';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import http from 'http';
-import { setConnectedClients } from './fingerprintRegister.js';
+
 
 const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS_JSON);
 
@@ -22,7 +22,7 @@ server.listen(port, () => {
 const wss = new WebSocketServer({ server });
 
 let connectedClients = [];
-setConnectedClients(connectedClients); // Se pasa referencia a fingerprintRegister
+ // Se pasa referencia a fingerprintRegister
 
 wss.on('connection', (ws) => {
   console.log('🚀 Nueva conexión WebSocket');
