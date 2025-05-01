@@ -80,10 +80,22 @@ wss.on('connection', (ws) => {
           }
           break;
 
+        case 'resultado_registro_asistencia':
+          console.log('🔁 Resultado escaneo huella para asistencia:', message);
+          const resolver = asistenciaPendiente.get(message.uid);
+          if (resolver) {
+            asistenciaPendiente.delete(message.uid);
+            resolver(message.match === true); // match: true o false desde ESP32
+          } else {
+            console.warn('⚠️ No hay promesa pendiente para UID:', message.uid);
+          }
+          break;
+
         default:
           console.warn('⚠️ Acción no reconocida en mensaje WebSocket:', message.action);
           break;
       }
+
     } catch (err) {
       console.error('❗ Error procesando mensaje WebSocket:', err);
     }
@@ -146,5 +158,53 @@ app.post('/trigger-fingerprint-scan', async (req, res) => {
   } catch (error) {
     console.error('❌ Error en trigger-fingerprint-scan:', error);
     res.status(500).json({ error: 'Error interno al enviar solicitud de registro de huella' });
+  }
+});
+
+
+
+// 🧠 Mapa temporal para resolver promesas de solicitudes de asistencia
+const asistenciaPendiente = new Map();
+
+// ✅ Endpoint para manejar asistencia con validación de huella en tiempo real
+app.post('/request_assistance', async (req, res) => {
+  try {
+    const { uid, nombre, templateId } = req.body;
+
+    if (!uid || !nombre || (templateId === undefined || templateId === null)) {
+      return res.status(400).json({ error: 'Faltan uid  o nombre o templateId' });
+    }
+
+    if (connectedClients.length === 0) {
+      return res.status(503).json({ error: 'No hay ESP32 conectado' });
+    }
+
+    const message = {
+      action: 'registrar_asistencia',
+      uid,
+      nombre,
+      templateId
+    };
+
+    // Enviar solicitud a la ESP
+    connectedClients.forEach(ws => {
+      ws.send(JSON.stringify(message));
+    });
+
+    // Esperar respuesta de la ESP32 con Promise y timeout
+    const resultado = await new Promise((resolve, reject) => {
+      asistenciaPendiente.set(uid, resolve);
+
+      setTimeout(() => {
+        asistenciaPendiente.delete(uid);
+        reject(new Error('Tiempo de espera agotado para respuesta de ESP32'));
+      }, 15000); // 10 segundos de timeout
+    });
+
+    console.log(`📬 Resultado recibido desde ESP32 para UID ${uid}: match = ${resultado}`);
+    return res.status(200).json({ match: resultado === true });
+  } catch (error) {
+    console.error('❌ Error en /request_assistance:', error);
+    return res.status(500).json({ error: 'Error interno en el servidor' });
   }
 });
