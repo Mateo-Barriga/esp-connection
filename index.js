@@ -4,7 +4,6 @@ import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import http from 'http';
 
-
 const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS_JSON);
 
 initializeApp({
@@ -20,16 +19,14 @@ server.listen(port, () => {
 });
 
 const wss = new WebSocketServer({ server });
-
 let connectedClients = [];
- // Se pasa referencia a fingerprintRegister
+const asistenciaPendiente = new Map();
 
 wss.on('connection', (ws) => {
   console.log('🚀 Nueva conexión WebSocket');
   ws._id = Date.now();
   console.log(`🆔 Cliente conectado con ID temporal: ${ws._id}`);
 
-  // Reemplazar cliente anterior si existe
   if (connectedClients.length > 0) {
     console.log('⚠️ Cliente existente encontrado, cerrándolo...');
     connectedClients.forEach(client => {
@@ -85,17 +82,89 @@ wss.on('connection', (ws) => {
           const resolver = asistenciaPendiente.get(message.uid);
           if (resolver) {
             asistenciaPendiente.delete(message.uid);
-            resolver(message.match === true); // match: true o false desde ESP32
+            resolver(message.match === true);
           } else {
             console.warn('⚠️ No hay promesa pendiente para UID:', message.uid);
           }
           break;
 
+        case 'registrar_salida': {
+          const { templateId, token } = message;
+          console.log(`📥 Procesando solicitud de salida: templateId=${templateId}, token=${token}`);
+
+          let respuesta = {
+            action: 'resultado_registro_salida',
+            answer: 'no_registrado_app',
+            nombre: '',
+            titulo: ''
+          };
+
+          // Buscar usuario por templateId
+          const usuariosSnap = await db.collection('usuarios')
+            .where('templateId', '==', templateId)
+            .limit(1)
+            .get();
+
+          if (usuariosSnap.empty) {
+            console.log('❌ No se encontró usuario con ese templateId');
+            ws.send(JSON.stringify(respuesta));
+            return;
+          }
+
+          const usuarioDoc = usuariosSnap.docs[0];
+          const uid = usuarioDoc.id;
+          console.log(`✅ Usuario encontrado: UID=${uid}`);
+
+          // Buscar registro con uid y tokenQR
+          const registrosSnap = await db.collection('registros')
+            .where('uid', '==', uid)
+            .where('tokenQR', '==', token)
+            .limit(1)
+            .get();
+
+          if (registrosSnap.empty) {
+            console.log('❌ No se encontró un registro de entrada con ese token y UID');
+            respuesta.answer = 'sin_registro_evento';
+            ws.send(JSON.stringify(respuesta));
+            return;
+          }
+
+          const registroDoc = registrosSnap.docs[0];
+          const registro = registroDoc.data();
+
+          if (!registro.horaEntrada) {
+            console.log('⚠️ Registro encontrado, pero sin horaEntrada');
+            respuesta.answer = 'sin_registro_evento';
+            ws.send(JSON.stringify(respuesta));
+            return;
+          }
+
+          if (registro.horaSalida) {
+            console.log('ℹ️ Ya se había registrado una salida previamente');
+            respuesta.answer = 'salida_ya_registrada';
+            respuesta.nombre = registro.nombre || 'Estudiante';
+            respuesta.titulo = registro.titulo || '';
+            ws.send(JSON.stringify(respuesta));
+            return;
+          }
+
+          // Registrar hora de salida
+          await registroDoc.ref.update({ horaSalida: new Date() });
+          console.log('✅ Hora de salida registrada correctamente');
+
+          respuesta.answer = 'salida_registrada_exito';
+          respuesta.nombre = registro.nombre || 'Estudiante';
+          respuesta.titulo = registro.titulo || '';
+          ws.send(JSON.stringify(respuesta));
+          break;
+        }
+
+
+
         default:
           console.warn('⚠️ Acción no reconocida en mensaje WebSocket:', message.action);
           break;
       }
-
     } catch (err) {
       console.error('❗ Error procesando mensaje WebSocket:', err);
     }
@@ -110,7 +179,7 @@ db.collection('reuniones')
   .onSnapshot((snapshot) => {
     if (firstSnapshot) {
       firstSnapshot = false;
-      return; // Ignora primer snapshot
+      return;
     }
 
     snapshot.docChanges().forEach((change) => {
@@ -128,7 +197,6 @@ db.collection('reuniones')
     });
   });
 
-// ✅ Endpoint HTTP para iniciar registro de huella
 app.use(express.json());
 
 app.post('/trigger-fingerprint-scan', async (req, res) => {
@@ -161,12 +229,6 @@ app.post('/trigger-fingerprint-scan', async (req, res) => {
   }
 });
 
-
-
-// 🧠 Mapa temporal para resolver promesas de solicitudes de asistencia
-const asistenciaPendiente = new Map();
-
-// ✅ Endpoint para manejar asistencia con validación de huella en tiempo real
 app.post('/request_assistance', async (req, res) => {
   try {
     const { uid, nombre, templateId } = req.body;
@@ -186,19 +248,17 @@ app.post('/request_assistance', async (req, res) => {
       templateId
     };
 
-    // Enviar solicitud a la ESP
     connectedClients.forEach(ws => {
       ws.send(JSON.stringify(message));
     });
 
-    // Esperar respuesta de la ESP32 con Promise y timeout
     const resultado = await new Promise((resolve, reject) => {
       asistenciaPendiente.set(uid, resolve);
 
       setTimeout(() => {
         asistenciaPendiente.delete(uid);
         reject(new Error('Tiempo de espera agotado para respuesta de ESP32'));
-      }, 15000); // 10 segundos de timeout
+      }, 15000);
     });
 
     console.log(`📬 Resultado recibido desde ESP32 para UID ${uid}: match = ${resultado}`);
