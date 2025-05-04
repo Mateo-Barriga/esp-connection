@@ -132,8 +132,8 @@ wss.on('connection', (ws) => {
           const registroDoc = registrosSnap.docs[0];
           const registro = registroDoc.data();
 
-          if (!registro.horaEntrada) {
-            console.log('⚠️ Registro encontrado, pero sin horaEntrada');
+          if (!registro.horaIngreso) {
+            console.log('⚠️ Registro encontrado, pero sin horaIngreso');
             respuesta.answer = 'sin_registro_evento';
             ws.send(JSON.stringify(respuesta));
             return;
