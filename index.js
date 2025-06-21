@@ -64,18 +64,22 @@ wss.on('connection', (ws) => {
       }
 
       switch (message.action) {
-        case 'resultado_registro_huella':
-          console.log('✅ Respuesta de registro de huella:', message);
-          if (message.register_status === 'success') {
-            await db.collection('usuarios').doc(message.uid).update({
-              huella_registrada: true,
-              templateId: message.templateId
+
+        case 'resultado_registro_huella': {
+          const { uid, register_status, templateId, message: msg } = message;
+          const resolver = huellaPendiente.get(uid);
+          if (resolver) {
+            resolver({
+              status: register_status === 'success',
+              templateId,
+              uid,
+              message: msg || 'Respuesta recibida',
             });
-            console.log('🔥 Usuario actualizado en Firestore');
-          } else {
-            console.log('❌ Falló registro de huella para UID:', message.uid);
+            huellaPendiente.delete(uid);
           }
           break;
+        }
+
 
         case 'resultado_registro_asistencia':
           console.log('🔁 Resultado escaneo huella para asistencia:', message);
@@ -206,11 +210,16 @@ app.post('/trigger-fingerprint-scan', async (req, res) => {
   try {
     const { uid, nombre, email } = req.body;
 
+    console.log('📥 Solicitud recibida para registro de huella:');
+    console.log(`➡️ UID: ${uid}, Nombre: ${nombre}, Email: ${email}`);
+
     if (!uid || !nombre || !email) {
+      console.warn('⚠️ Datos incompletos en la solicitud');
       return res.status(400).json({ error: 'Datos incompletos' });
     }
 
     if (connectedClients.length === 0) {
+      console.warn('🚫 No hay ESP32 conectado al WebSocket');
       return res.status(503).json({ error: 'No hay ESP32 conectado' });
     }
 
@@ -221,25 +230,30 @@ app.post('/trigger-fingerprint-scan', async (req, res) => {
       email,
     };
 
+    console.log('📤 Enviando solicitud de registro de huella a ESP32 por WebSocket...');
     connectedClients.forEach(ws => ws.send(JSON.stringify(message)));
 
     const resultado = await new Promise((resolve, reject) => {
       huellaPendiente.set(uid, resolve);
 
       setTimeout(() => {
+        console.error(`⏰ Timeout esperando respuesta de ESP32 para UID: ${uid}`);
         huellaPendiente.delete(uid);
         reject(new Error('Timeout de ESP32'));
       }, 30000);
     });
 
+    console.log(`📬 Respuesta recibida de ESP32 para UID ${uid}:`, resultado);
+
     huellaPendiente.delete(uid);
     return res.status(200).json(resultado);
 
   } catch (error) {
-    console.error('❌ Error en Render (intermediarioHuella):', error);
+    console.error('❌ Error en /trigger-fingerprint-scan:', error);
     return res.status(500).json({ error: error.message });
   }
 });
+
 
 
 
