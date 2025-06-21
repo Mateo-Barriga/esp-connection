@@ -199,35 +199,51 @@ db.collection('reuniones')
 
 app.use(express.json());
 
+
+const huellaPendiente = new Map();
+
 app.post('/trigger-fingerprint-scan', async (req, res) => {
   try {
     const { uid, nombre, email } = req.body;
 
     if (!uid || !nombre || !email) {
-      return res.status(400).json({ error: 'Faltan datos obligatorios: uid, nombre o correo' });
+      return res.status(400).json({ error: 'Datos incompletos' });
+    }
+
+    if (connectedClients.length === 0) {
+      return res.status(503).json({ error: 'No hay ESP32 conectado' });
     }
 
     const message = {
       action: 'registrar_huella',
       uid,
       nombre,
-      email
+      email,
     };
 
-    if (connectedClients.length === 0) {
-      return res.status(503).json({ error: 'No hay ESP32 conectado' });
-    }
+    connectedClients.forEach(ws => ws.send(JSON.stringify(message)));
 
-    connectedClients.forEach(ws => {
-      ws.send(JSON.stringify(message));
+    const resultado = await new Promise((resolve, reject) => {
+      huellaPendiente.set(uid, resolve);
+
+      setTimeout(() => {
+        huellaPendiente.delete(uid);
+        reject(new Error('Timeout de ESP32'));
+      }, 30000);
     });
 
-    res.status(200).json({ message: 'Solicitud enviada a todos los clientes ESP32' });
+    huellaPendiente.delete(uid);
+    return res.status(200).json(resultado);
+
   } catch (error) {
-    console.error('❌ Error en trigger-fingerprint-scan:', error);
-    res.status(500).json({ error: 'Error interno al enviar solicitud de registro de huella' });
+    console.error('❌ Error en Render (intermediarioHuella):', error);
+    return res.status(500).json({ error: error.message });
   }
 });
+
+
+
+
 
 app.post('/request_assistance', async (req, res) => {
   try {
